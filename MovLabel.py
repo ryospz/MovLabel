@@ -39,7 +39,7 @@ class App:
         self.btn_saver.grid(row = 4, column=2, columnspan=2)
         self.btn_refresh=tk.Button(window, text="Refresh", width = 20, command=self.refresh)
         self.btn_refresh.grid(row=len(class_list)+5, column=0)
-        self.delay = 20
+        self.delay = 15
 
         self.class_list_name = []
         for cl_l in class_list:
@@ -135,10 +135,17 @@ class MakePulldown:
         self.pulldown.config(width=20, font=('Helvetica', 12))
         self.pulldown.grid(column=2, row = numb+5, pady=1, columnspan=2)
 
-"""
+
 class Saver:
-    def __
-"""
+    def __init__(self):
+        defaults = Default_Configure()
+        self._defaults = defaults._defaults
+        self.export_path = self._defaults["export_path"]
+
+    def save(self, movie_name, class_list_name, labels):
+        for cln in class_list_name:
+            a=[]
+
 
 
 class MyVideoCapture:
@@ -210,6 +217,7 @@ class Default_Configure:
         "gt_path":"soft_data/mov_labels.txt",
         "frame_per_detection":15,
         "import_path":"/Users/Ryo/desktop/Master/raw_movie"
+        "export_path":""
         }
 
 
