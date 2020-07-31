@@ -202,20 +202,24 @@ class Load_Movie:
         self.movie_files = glob.glob(self.defaults._defaults["import_path"]+"/*.MOV")
         self.movie_files.sort()
         self.video_id = 0
-        print(self.defaults._defaults["import_path"])
+        self.movie_ifGT = [False]*len(self.movie_files)
         if os.path.exists(self.defaults._defaults["video_id_path"]):
             with open(self.defaults._defaults["video_id_path"], "r") as f:
                 reader = csv.reader(f)
-                self.exists_file = [[row] for row in reader]
+                self.exists_file = [row for row in reader]
+                self.exists_file[0]
                 self.add_file = []
                 for vd in self.movie_files:
                     if not vd in self.exists_file[0]:
                         self.add_file.append(vd)
-                self.movie_files = self.exists_file+self.add_file
+                        print(vd)
+                self.movie_files = self.exists_file[0]+self.add_file
+                self.movie_ifGT[:len(self.exists_file[1])] = self.exists_file[1]
                 self.video_id = len(self.exists_file) if not self.add_file==[] else 0
         with open(self.defaults._defaults["video_id_path"], "w") as f:
             writer = csv.writer(f)
             writer.writerow(self.movie_files)
+            writer.writerow(self.movie_ifGT)
 
 
 
