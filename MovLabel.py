@@ -3,15 +3,18 @@ import cv2
 import PIL.Image, PIL.ImageTk
 import time
 import glob
+import csv
+import os
 
 class App:
     def __init__(self, window, window_title, video_source=0, class_list=None):
         self.window = window
         self.window.title(window_title)
 
+        #self.saver = Saver()
         self.video_loader = Load_Movie()
         self.video_source = video_source
-        self.video_id = 0
+        self.video_id = self.video_loader.video_id
         self.frame_set_num=0
         self.vid = self.video_loader.video_capture(self.video_id)
         self.canvas = tk.Canvas(window, width = 640, height = 360)
@@ -35,7 +38,7 @@ class App:
         self.video_label.grid(row = 2, column = 2, columnspan=2)
         self.movie_label = tk.Label(self.window, textvariable=self.movie_text)
         self.movie_label.grid(row = 3, column = 1, columnspan=4)
-        self.btn_saver=tk.Button(window, text="Save", width=20, height = 2 ,command=self.saver)
+        self.btn_saver=tk.Button(window, text="Save", width=20, height = 2 ,command=self.label_saver)
         self.btn_saver.grid(row = 4, column=2, columnspan=2)
         self.btn_refresh=tk.Button(window, text="Refresh", width = 20, command=self.refresh)
         self.btn_refresh.grid(row=len(class_list)+5, column=0)
@@ -51,7 +54,7 @@ class App:
         self.update()
         self.window.mainloop()
 
-    def saver(self):
+    def label_saver(self):
         labels = []
         for cln in self.class_list_name:
             labels.append(cln.variable.get())
@@ -141,6 +144,8 @@ class Saver:
         defaults = Default_Configure()
         self._defaults = defaults._defaults
         self.export_path = self._defaults["export_path"]
+        self.aaaa=0
+
 
     def save(self, movie_name, class_list_name, labels):
         for cln in class_list_name:
@@ -196,7 +201,24 @@ class Load_Movie:
         self.defaults = Default_Configure()
         self.movie_files = glob.glob(self.defaults._defaults["import_path"]+"/*.MOV")
         self.movie_files.sort()
+        self.video_id = 0
         print(self.defaults._defaults["import_path"])
+        if os.path.exists(self.defaults._defaults["video_id_path"]):
+            with open(self.defaults._defaults["video_id_path"], "r") as f:
+                reader = csv.reader(f)
+                self.exists_file = [[row] for row in reader]
+                self.add_file = []
+                for vd in self.movie_files:
+                    if not vd in self.exists_file[0]:
+                        self.add_file.append(vd)
+                self.movie_files = self.exists_file+self.add_file
+                self.video_id = len(self.exists_file) if not self.add_file==[] else 0
+        with open(self.defaults._defaults["video_id_path"], "w") as f:
+            writer = csv.writer(f)
+            writer.writerow(self.movie_files)
+
+
+
         """
         open_file = open("true_data.txt", "r")
         lines = open_file.read().splitlines()
@@ -216,8 +238,8 @@ class Default_Configure:
         self._defaults ={
         "gt_path":"soft_data/mov_labels.txt",
         "frame_per_detection":15,
-        "import_path":"/Users/Ryo/desktop/Master/raw_movie"
-        "export_path":""
+        "import_path":"/Users/Ryo/desktop/Master/raw_movie",
+        "video_id_path":"save_data/video_id.csv"
         }
 
 
