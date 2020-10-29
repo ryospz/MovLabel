@@ -3,8 +3,10 @@ import cv2
 import PIL.Image, PIL.ImageTk
 import time
 import glob
+import pandas as pd
 import csv
 import os
+import datetime
 
 class App:
     def __init__(self, window, window_title, video_source=0, class_list=None):
@@ -50,6 +52,7 @@ class App:
             cln = cl_l.lstrip("label_data/").rstrip("_class.txt")
             self.class_list_name.append(cln)
             self.class_list_name[idx] = MakePulldown(window, window_title, cl_l, idx, cln)
+        self.saver = Saver(self.class_list_name)
 
         self.update()
         self.window.mainloop()
@@ -59,9 +62,18 @@ class App:
         for cln in self.class_list_name:
             labels.append(cln.variable.get())
         print(" ".join(labels))
+        self.saver.save_new_label(self.video_loader.get_movie_name(self.video_id), self.frame_set_num*75, labels)
     #def previous_frame()
     def refresh(self):
         self.vid.framen=0
+    def initialize_pulldown(self, is_labeled=False):
+        if is_labeled:
+            label = labeled_data["mov_name"]["class"]["frame"]
+            for cln in self.class_list_name:
+                cln.variable.get()
+
+        for cln in self.class_list_name:
+            cln.variable.set(cln.item[0])
     def next_set(self):
         if self.frame_set_num>=(len(self.vid.frames)-90)//75:
             self.video_id+=1
@@ -71,6 +83,7 @@ class App:
         print(self.frame_set_num)
         self.vid.framen=self.frame_set_num*75
         self.movie_text_setter()
+        self.initialize_pulldown()
 
     def previous_set(self):
         if self.frame_set_num<=0:
@@ -81,6 +94,8 @@ class App:
         print(self.frame_set_num)
         self.vid.framen=self.frame_set_num*75
         self.movie_text_setter()
+        self.initialize_pulldown()
+
 
     def jump_button(self):
         if self.video_id == int(self.jump_box.get())-1:
@@ -140,16 +155,36 @@ class MakePulldown:
 
 
 class Saver:
-    def __init__(self):
+    def __init__(self, class_list_name):
         defaults = Default_Configure()
         self._defaults = defaults._defaults
         self.export_path = self._defaults["export_path"]
-        self.aaaa=0
+        try:
+            self.datas_df = pd.read_csv(self.export_path, index_col=0)
+        except:
+            row = ["Movie Name", "Begin", "End"] + [cln.name for cln in class_list_name ]+ ["update_date"]
+            self.datas_df = pd.DataFrame(columns=row)
+            with open(self.export_path, "w") as f:
+                f.write(",".join(row))
+        else:
+            pass
 
 
-    def save(self, movie_name, class_list_name, labels):
-        for cln in class_list_name:
-            a=[]
+
+    def save_new_label(self, movie_name, initial_frame,labels):
+        dt_now = datetime.datetime.now()
+        dt_now = dt_now.strftime('%Y-%m%d.%H:%M')
+        print(labels)
+        add_row = [initial_frame, initial_frame+150]+labels+[dt_now]
+        add_pd = pd.Series(add_row, index=self.datas_df.columns)
+        self.datas_pd.append(add_pd)
+        #self.datas_df[:, movie_name]=add_row
+        #print(self.datas_df)
+        with open(self.export_path, "a") as f:
+            f.write(",".join(add_row))
+
+
+
 
 
 
@@ -243,7 +278,8 @@ class Default_Configure:
         "gt_path":"soft_data/mov_labels.txt",
         "frame_per_detection":15,
         "import_path":"/Users/Ryo/desktop/Master/raw_movie",
-        "video_id_path":"save_data/video_id.csv"
+        "video_id_path":"save_data/video_id.csv",
+        "export_path":"soft_data/mov_labels.csv"
         }
 
 
