@@ -13,8 +13,8 @@ class App:
         self.window = window
         self.window.title(window_title)
 
-        #self.saver = Saver()
-        self.video_loader = Load_Movie()
+
+        self.video_loader = LoadMovie()
         self.video_source = video_source
         self.video_id = self.video_loader.video_id
         self.frame_set_num=0
@@ -57,12 +57,22 @@ class App:
         self.update()
         self.window.mainloop()
 
+
     def label_saver(self):
         labels = []
         for cln in self.class_list_name:
             labels.append(cln.variable.get())
-        print(" ".join(labels))
-        self.saver.save_new_label(self.video_loader.get_movie_name(self.video_id), self.frame_set_num*75, labels)
+        #print(" ".join(labels))
+        _movie_name = self.video_loader.get_movie_name(self.video_id)
+        _frame_num = self.frame_set_num*75
+        print(labels)
+        #print(self.saver.data_df.query("Movie_Name == @_movie_name").query("Begin == @_frame_num"))
+        if self.saver.data_df.query("Movie_Name == @_movie_name").query("Begin == @_frame_num").empty:
+            print("new labels")
+            self.saver.save_new_label(_movie_name, self.frame_set_num*75, labels)
+        else:
+            print("overwrite")
+            self.saver.save_overwrite(_movie_name, self.frame_set_num*75, labels)
     #def previous_frame()
     def refresh(self):
         self.vid.framen=0
@@ -111,6 +121,7 @@ class App:
         self.movie_text_setter()
         self.vid = self.video_loader.video_capture(self.video_id)
 
+
     def movie_text_setter(self):
         self.movie_text.set("{0} from {1} to {2} frames".format(self.video_loader.get_movie_name(self.video_id), self.frame_set_num*75, (self.frame_set_num+2)*75))
         self.video_id_text.set("{} / {} movies".format(self.video_id+1, len(self.video_loader.movie_files)))
@@ -131,7 +142,7 @@ class App:
                     self.canvas.create_image(0, 0, image = self.photo, anchor = tk.NW)
                 self.window.after(self.delay, self.update)
         #elif ret:
-        #    self.vid = MyVideoCapture(self.video_source)
+        #    self.vid = VideoCapture(self.video_source)
         else:
             self.window.after(0, self.update)
 
@@ -159,36 +170,65 @@ class Saver:
         defaults = Default_Configure()
         self._defaults = defaults._defaults
         self.export_path = self._defaults["export_path"]
+        self.class_list_name = class_list_name
+        self.def_columns = ["Movie_Name", "Begin", "End"] + [cln.name for cln in self.class_list_name ]+ ["update_date"]
         try:
-            self.datas_df = pd.read_csv(self.export_path, index_col=0)
+            self.data_df = pd.read_csv(self.export_path, index_col=0)
         except:
-            row = ["Movie Name", "Begin", "End"] + [cln.name for cln in class_list_name ]+ ["update_date"]
-            self.datas_df = pd.DataFrame(columns=row)
-            with open(self.export_path, "w") as f:
-                f.write(",".join(row))
+            self.df_initialize()
         else:
             pass
 
+    def df_initialize(self):
+        self.data_df = pd.DataFrame(columns=self.def_columns)
+        with open(self.export_path, "w") as f:
+            f.write(",".join(self.def_columns))
+        self.data_df = pd.read_csv(self.export_path, index_col=0)
+
+
+    def get_time(self):
+        dt_now = datetime.datetime.now()
+        dt_now = dt_now.strftime('%Y/%m/%d-%H:%M')
+        return dt_now
 
 
     def save_new_label(self, movie_name, initial_frame,labels):
-        dt_now = datetime.datetime.now()
-        dt_now = dt_now.strftime('%Y-%m%d.%H:%M')
-        print(labels)
-        add_row = [initial_frame, initial_frame+150]+labels+[dt_now]
-        add_pd = pd.Series(add_row, index=self.datas_df.columns)
-        self.datas_pd.append(add_pd)
-        #self.datas_df[:, movie_name]=add_row
-        #print(self.datas_df)
+        dt_now = self.get_time()
+
+        add_row = [movie_name, initial_frame, initial_frame+150]+labels+[dt_now]
+        #print(add_row)
+        #add_pd = pd.Series(add_row, columns=self.data_df.columns, index=self.data_df.columns)
+        add_pd = pd.Series(add_row[1:], index=self.data_df.columns, name=add_row[0])
+        self.data_df = self.data_df.append(add_pd)
+        #self.data_df[:, movie_name]=add_row
+        #print(self.data_df)
         with open(self.export_path, "a") as f:
-            f.write(",".join(add_row))
+            print("write")
+            f.write("\n")
+            f.write(",".join([str(e) for e in add_row]))
+
+
+    def save_overwrite(self, movie_name, initial_frame, labels):
+        dt_now = self.get_time()
+        #print(labels)
+        #self.data_df = self.data_df = pd.read_csv(self.export_path, index_col=0)
+        self.data_df = self.data_df.query("Movie_Name != @movie_name | Begin != @initial_frame")
+        if self.data_df.empty:
+            self.df_initialize()
+            return self.save_new_label(movie_name, initial_frame, labels)
+        add_row = [movie_name, initial_frame, initial_frame+150]+labels+[dt_now]
+        add_pd = pd.Series(add_row[1:], index=self.data_df.columns, name=add_row[0])
+        self.data_df = self.data_df.append(add_pd)
+        #print(self.data_df)
+
+        self.data_df.to_csv(self.export_path, sep=",")
 
 
 
 
 
 
-class MyVideoCapture:
+class VideoCapture:
     def __init__(self, video_source=0, ):
         self.defaults = Default_Configure()
         self.vid = cv2.VideoCapture(video_source)
@@ -200,6 +240,7 @@ class MyVideoCapture:
         ret = True
         self.frames=[]
         self.framen =0
+        self.fps = self.vid.get(cv2.CAP_PROP_FPS)
         while True:
             ret, frame = self.vid.read()
             if ret:
@@ -231,7 +272,7 @@ class MyVideoCapture:
         if self.vid.isOpened():
             self.vid.release()
 
-class Load_Movie:
+class LoadMovie:
     def __init__(self):
         self.defaults = Default_Configure()
         self.movie_files = glob.glob(self.defaults._defaults["import_path"]+"/*.MOV")
@@ -266,23 +307,29 @@ class Load_Movie:
 
     def video_capture(self, video_id):
         target_video = self.movie_files[video_id]
-        return MyVideoCapture(target_video)
+        return VideoCapture(target_video)
 
     def get_movie_name(self, video_id):
         target_video = self.movie_files[video_id]
-        return target_video.lstrip(self.defaults._defaults["import_path"])
+        return target_video.strip().lstrip(self.defaults._defaults["import_path"])
 
 class Default_Configure:
     def __init__(self):
         self._defaults ={
         "gt_path":"soft_data/mov_labels.txt",
-        "frame_per_detection":15,
-        "import_path":"/Users/Ryo/desktop/Master/raw_movie",
-        "video_id_path":"save_data/video_id.csv",
-        "export_path":"soft_data/mov_labels.csv"
+        "detection_per_second":2,
+        "viewing_span":10,
+        "import_path":"./movies",
+        "video_id_path":"./save_data/video_id.csv",
+        "export_path":"./save_data/new_mov_labels.csv"
         }
 
-
-label_data ="label_data/"
-class_list = glob.glob(label_data+"*_class.txt")
-App(tk.Tk(), " MovLabel", "", class_list)
+if __name__ == "__main__":
+    label_data ="label_data/"
+    class_list = glob.glob(label_data+"*_class.txt")
+    try:
+        while True:
+            App(tk.Tk(), " MovLabel", "", class_list)
+            exit()
+    except:
+        print("End")
