@@ -12,6 +12,7 @@ class App:
     def __init__(self, window, window_title, video_source=0, class_list=None):
         self.window = window
         self.window.title(window_title)
+        self.defaults = Default_Configure()
 
 
         self.video_loader = LoadMovie()
@@ -19,6 +20,9 @@ class App:
         self.video_id = self.video_loader.video_id
         self.frame_set_num=0
         self.vid = self.video_loader.video_capture(self.video_id)
+        self.fps = self.vid.fps
+        self.apply_term = self.defaults._defaults["viewing_span"]*self.fps
+
         self.canvas = tk.Canvas(window, width = 640, height = 360)
         self.canvas.grid(rowspan=len(class_list)+5)
         self.btn_previous=tk.Button(window, text="Previous", width=20, command=self.previous_set)
@@ -64,15 +68,15 @@ class App:
             labels.append(cln.variable.get())
         #print(" ".join(labels))
         _movie_name = self.video_loader.get_movie_name(self.video_id)
-        _frame_num = self.frame_set_num*75
+        _frame_num = self.frame_set_num*self.apply_term
         print(labels)
         #print(self.saver.data_df.query("Movie_Name == @_movie_name").query("Begin == @_frame_num"))
         if self.saver.data_df.query("Movie_Name == @_movie_name").query("Begin == @_frame_num").empty:
             print("new labels")
-            self.saver.save_new_label(_movie_name, self.frame_set_num*75, labels)
+            self.saver.save_new_label(_movie_name, self.frame_set_num*self.apply_term, labels, self.apply_term)
         else:
             print("overwrite")
-            self.saver.save_overwrite(_movie_name, self.frame_set_num*75, labels)
+            self.saver.save_overwrite(_movie_name, self.frame_set_num*self.apply_term, labels, self.apply_term)
     #def previous_frame()
     def refresh(self):
         self.vid.framen=0
@@ -85,13 +89,12 @@ class App:
         for cln in self.class_list_name:
             cln.variable.set(cln.item[0])
     def next_set(self):
-        if self.frame_set_num>=(len(self.vid.frames)-90)//75:
+        self.frame_set_num+=1
+        if (self.frame_set_num+1)*self.apply_term>(len(self.vid.frames)-self.apply_term//2):
             self.video_id+=1
             self.jump_movie()
-        else:
-            self.frame_set_num+=1
         print(self.frame_set_num)
-        self.vid.framen=self.frame_set_num*75
+        self.vid.framen=self.frame_set_num*self.apply_term
         self.movie_text_setter()
         self.initialize_pulldown()
 
@@ -102,7 +105,7 @@ class App:
         else:
             self.frame_set_num-=1
         print(self.frame_set_num)
-        self.vid.framen=self.frame_set_num*75
+        self.vid.framen=self.frame_set_num*self.apply_term
         self.movie_text_setter()
         self.initialize_pulldown()
 
@@ -120,20 +123,22 @@ class App:
         self.frame_set_num=0
         self.movie_text_setter()
         self.vid = self.video_loader.video_capture(self.video_id)
+        self.fps = self.vid.fps
+
 
 
     def movie_text_setter(self):
-        self.movie_text.set("{0} from {1} to {2} frames".format(self.video_loader.get_movie_name(self.video_id), self.frame_set_num*75, (self.frame_set_num+2)*75))
+        self.movie_text.set("{0} from {1} to {2} frames".format(self.video_loader.get_movie_name(self.video_id), self.frame_set_num*self.apply_term, (self.frame_set_num+2)*self.apply_term))
         self.video_id_text.set("{} / {} movies".format(self.video_id+1, len(self.video_loader.movie_files)))
 
     def update(self):
         ret, frame = self.vid.get_frame()
-        if self.frame_set_num*75<=self.vid.framen<(self.frame_set_num+2)*75:
+        if self.frame_set_num*self.apply_term<=self.vid.framen<(self.frame_set_num+2)*self.apply_term:
             try:
                 frame = cv2.resize(frame, (640, 360))
                 #frame = cv2.resize(frame, (self.vid.width, self.vid.height))
             except:
-                self.vid.framen=self.frame_set_num*75
+                self.vid.framen=self.frame_set_num*self.apply_term
                 ret, frame = self.vid.get_frame()
                 frame = cv2.resize(frame, (640, 360))
             finally:
@@ -192,10 +197,10 @@ class Saver:
         return dt_now
 
 
-    def save_new_label(self, movie_name, initial_frame,labels):
+    def save_new_label(self, movie_name, initial_frame,labels, vid_len):
         dt_now = self.get_time()
 
-        add_row = [movie_name, initial_frame, initial_frame+150]+labels+[dt_now]
+        add_row = [movie_name, initial_frame, initial_frame+vid_len]+labels+[dt_now]
         #print(add_row)
         #add_pd = pd.Series(add_row, columns=self.data_df.columns, index=self.data_df.columns)
         add_pd = pd.Series(add_row[1:], index=self.data_df.columns, name=add_row[0])
@@ -208,7 +213,7 @@ class Saver:
             f.write(",".join([str(e) for e in add_row]))
 
 
-    def save_overwrite(self, movie_name, initial_frame, labels):
+    def save_overwrite(self, movie_name, initial_frame, labels, vid_len):
         dt_now = self.get_time()
         #print(labels)
         #self.data_df = self.data_df = pd.read_csv(self.export_path, index_col=0)
