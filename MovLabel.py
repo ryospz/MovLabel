@@ -21,7 +21,7 @@ class App:
         self.frame_set_num=0
         self.vid = self.video_loader.video_capture(self.video_id)
         self.fps = self.vid.fps
-        self.apply_term = self.defaults._defaults["viewing_span"]*self.fps
+        self.apply_term = int(self.defaults._defaults["viewing_span"]*self.fps)
 
         self.canvas = tk.Canvas(window, width = 640, height = 360)
         self.canvas.grid(rowspan=len(class_list)+5)
@@ -177,6 +177,7 @@ class Saver:
         self.export_path = self._defaults["export_path"]
         self.class_list_name = class_list_name
         self.def_columns = ["Movie_Name", "Begin", "End"] + [cln.name for cln in self.class_list_name ]+ ["update_date"]
+        print(self.def_columns)
         try:
             self.data_df = pd.read_csv(self.export_path, index_col=0)
         except:
@@ -201,6 +202,7 @@ class Saver:
         dt_now = self.get_time()
 
         add_row = [movie_name, initial_frame, initial_frame+vid_len]+labels+[dt_now]
+        print(add_row)
         #print(add_row)
         #add_pd = pd.Series(add_row, columns=self.data_df.columns, index=self.data_df.columns)
         add_pd = pd.Series(add_row[1:], index=self.data_df.columns, name=add_row[0])
@@ -221,7 +223,7 @@ class Saver:
         if self.data_df.empty:
             self.df_initialize()
             return self.save_new_label(movie_name, initial_frame, labels)
-        add_row = [movie_name, initial_frame, initial_frame+150]+labels+[dt_now]
+        add_row = [movie_name, initial_frame, initial_frame+vid_len]+labels+[dt_now]
         add_pd = pd.Series(add_row[1:], index=self.data_df.columns, name=add_row[0])
         self.data_df = self.data_df.append(add_pd)
         #print(self.data_df)
@@ -316,17 +318,17 @@ class LoadMovie:
 
     def get_movie_name(self, video_id):
         target_video = self.movie_files[video_id]
-        return target_video.strip().lstrip(self.defaults._defaults["import_path"])
+        return target_video.strip().lstrip(self.defaults._defaults["import_path"]).rstrip(".MOV")
 
 class Default_Configure:
     def __init__(self):
         self._defaults ={
         "gt_path":"soft_data/mov_labels.txt",
         "detection_per_second":2,
-        "viewing_span":10,
+        "viewing_span":5, 
         "import_path":"./movies",
         "video_id_path":"./save_data/video_id.csv",
-        "export_path":"./save_data/new_mov_labels.csv"
+        "export_path":"./save_data/behavior.csv"
         }
 
 if __name__ == "__main__":
